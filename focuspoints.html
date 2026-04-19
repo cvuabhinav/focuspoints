@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FocusPoints</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080c;--bg1:#0d0f17;--bg2:#13151e;--bg3:#191c28;--bg4:#202335;
+  --border:rgba(255,255,255,0.055);--border2:rgba(255,255,255,0.1);--border3:rgba(255,255,255,0.17);
+  --text:#ecedff;--text2:#7880a4;--text3:#3e4460;
+  --gold:#f5c430;--gold2:#ffe066;--gold3:rgba(245,196,48,0.09);
+  --green:#00dfa0;--green2:rgba(0,223,160,0.07);
+  --red:#ff3f6a;--red2:rgba(255,63,106,0.09);
+  --blue:#4aa0ff;--blue2:rgba(74,160,255,0.09);
+  --orange:#ff8c3a;--purple:#b07cf0;
+  --r:11px;--r2:18px;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;overflow-x:hidden}
+#fish-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.4}
+.wrap{max-width:920px;margin:0 auto;padding:0 1.5rem 5rem;position:relative;z-index:1}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:1.5rem 0 1rem;border-bottom:1px solid var(--border)}
+.logo{font-family:'Space Mono',monospace;font-size:1.15rem;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.logo em{color:var(--gold);font-style:normal}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.streak-pill{display:flex;align-items:center;gap:5px;background:rgba(255,140,58,.1);border:1px solid rgba(255,140,58,.22);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--orange)}
+.pts-pill{display:flex;align-items:center;gap:7px;background:var(--gold3);border:1px solid rgba(245,196,48,.2);border-radius:999px;padding:5px 16px}
+.pts-num{font-family:'Space Mono',monospace;font-size:1rem;color:var(--gold2);font-weight:700}
+.pts-lbl{font-size:10px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.nav{display:flex;gap:2px;margin:1rem 0 1.2rem;background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);padding:3px}
+.nb{flex:1;padding:9px 6px;text-align:center;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;border-radius:8px;transition:all .2s;position:relative;user-select:none}
+.nb:hover{color:var(--text2)}.nb.active{background:var(--bg3);color:var(--text);box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.nbadge{position:absolute;top:6px;right:8px;width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.ss{display:flex;align-items:center;gap:9px;padding:9px 14px;border-radius:var(--r);background:var(--bg1);border:1px solid var(--border);margin-bottom:1rem;font-size:13px}
+.sd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sd.idle{background:var(--text3)}.sd.focused{background:var(--green);animation:ag 2s infinite}
+.sd.distracted{background:var(--red);animation:ar 1s infinite}.sd.break{background:var(--blue)}
+.sd.away{background:var(--orange);animation:ao 1s infinite}.sd.gaming{background:var(--purple);animation:ap 2s infinite}
+@keyframes ag{0%,100%{box-shadow:0 0 0 3px rgba(0,223,160,.12)}50%{box-shadow:0 0 0 7px rgba(0,223,160,.03)}}
+@keyframes ar{0%,100%{box-shadow:0 0 0 3px rgba(255,63,106,.15)}50%{box-shadow:0 0 0 7px rgba(255,63,106,.04)}}
+@keyframes ao{0%,100%{box-shadow:0 0 0 3px rgba(255,140,58,.18)}50%{box-shadow:0 0 0 7px rgba(255,140,58,.05)}}
+@keyframes ap{0%,100%{box-shadow:0 0 0 3px rgba(176,124,240,.14)}50%{box-shadow:0 0 0 7px rgba(176,124,240,.04)}}
+.st{font-weight:700}.st.idle{color:var(--text2)}.st.focused{color:var(--green)}.st.distracted{color:var(--red)}
+.st.break{color:var(--blue)}.st.away{color:var(--orange)}.st.gaming{color:var(--purple)}
+.ssub{margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;color:var(--text3)}
+.cam-w{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);padding:.9rem 1.1rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:12px;transition:border-color .3s}
+.cam-w.locked{border-color:rgba(0,223,160,.18)}.cam-w.away-state{border-color:rgba(255,140,58,.3)}
+.cam-thumb{width:100px;height:75px;border-radius:8px;background:var(--bg3);overflow:hidden;flex-shrink:0;border:1px solid var(--border2);position:relative}
+.cam-thumb video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block;position:absolute;inset:0}
+.cam-thumb canvas{width:100%;height:100%;display:block;position:absolute;inset:0;pointer-events:none}
+.cam-off-ico{display:flex;align-items:center;justify-content:center;height:100%;font-size:1.4rem;color:var(--text3)}
+.cam-info{flex:1;min-width:0}
+.cam-title{font-size:13px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.cam-desc{font-size:11px;color:var(--text2);line-height:1.5}
+.cam-stat{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;margin-top:5px}
+.cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.conf-row{margin-top:6px;display:flex;align-items:center;gap:8px}
+.conf-bg{flex:1;background:var(--bg3);border-radius:999px;height:3px;overflow:hidden}
+.conf-fill{height:100%;border-radius:999px;transition:width .5s,background .5s}
+.conf-pct{font-size:10px;font-family:'Space Mono',monospace;white-space:nowrap;min-width:30px;text-align:right}
+.rec-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,63,106,.12);border:1px solid rgba(255,63,106,.25);border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700;color:var(--red);letter-spacing:.05em}
+.rec-dot{width:5px;height:5px;border-radius:50%;background:var(--red);animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.cbtn{padding:7px 13px;border-radius:9px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;align-self:center}
+.cbtn:hover{background:var(--bg4)}.cbtn.on{background:var(--red2);border-color:rgba(255,63,106,.3);color:var(--red)}
+.cbtn:disabled{opacity:.35;cursor:not-allowed}
+.tc{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);padding:2.2rem 1.75rem 1.75rem;margin-bottom:.9rem;position:relative;overflow:hidden;transition:border-color .4s}
+.tc.focused{border-color:rgba(0,223,160,.18)}.tc.distracted{border-color:rgba(255,63,106,.22)}
+.tc.away{border-color:rgba(255,140,58,.28)}.tc.gaming{border-color:rgba(176,124,240,.22)}
+.tc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;transition:all .4s}
+.tc.focused::before{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.tc.distracted::before{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.tc.away::before{background:linear-gradient(90deg,transparent,var(--orange),transparent)}
+.glow{position:absolute;width:380px;height:380px;border-radius:50%;filter:blur(88px);opacity:0;pointer-events:none;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .6s}
+.tc.focused .glow{background:var(--green);opacity:.03}.tc.distracted .glow{background:var(--red);opacity:.04}
+.tc.away .glow{background:var(--orange);opacity:.035}
+.tlbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);font-weight:700;margin-bottom:.65rem}
+.trow{display:flex;align-items:baseline;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap}
+.tdig{font-family:'Space Mono',monospace;font-size:clamp(2.8rem,9vw,5rem);font-weight:700;letter-spacing:-.03em;line-height:1;transition:color .4s}
+.tdig.focused{color:var(--green)}.tdig.distracted{color:var(--red)}.tdig.away{color:var(--orange)}.tdig.idle{color:var(--text)}
+.tprev{font-size:13px;color:var(--text3);font-weight:500}.tprev strong{color:var(--gold)}
+.pbar{background:var(--bg3);border-radius:999px;height:4px;margin-bottom:.4rem;overflow:hidden}
+.pfill{height:100%;border-radius:999px;transition:width 1s linear,background .5s}
+.pfill.gold{background:linear-gradient(90deg,var(--gold),var(--gold2))}.pfill.red{background:var(--red)}.pfill.orange{background:var(--orange)}
+.pmiles{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:'Space Mono',monospace;margin-bottom:1.5rem;flex-wrap:wrap;gap:4px}
+.ms.hit{color:var(--gold);font-weight:700}
+.wbox{border-radius:var(--r);padding:12px 14px;margin-bottom:1rem;font-size:13px;font-weight:500;display:flex;align-items:flex-start;gap:9px;line-height:1.5}
+.wbox.blue{background:var(--blue2);border:1px solid rgba(74,160,255,.22);color:var(--blue)}
+.wbox.red{background:var(--red2);border:1px solid rgba(255,63,106,.28);color:var(--red)}
+.wbox.orange{background:rgba(255,140,58,.07);border:1px solid rgba(255,140,58,.28);color:var(--orange)}
+.wbox.gold{background:var(--gold3);border:1px solid rgba(245,196,48,.22);color:var(--gold)}
+.wt{font-family:'Space Mono',monospace;font-weight:700}
+.brow{display:flex;gap:9px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 20px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;flex:1;min-width:120px}
+.btn:hover{background:var(--bg3);border-color:var(--border3);transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--gold);color:#06070e;border-color:var(--gold);font-weight:800}
+.btn.primary:hover{background:var(--gold2)}
+.btn.red{background:var(--red2);color:var(--red);border-color:rgba(255,63,106,.28)}
+.btn.red:hover{background:rgba(255,63,106,.15)}
+.btn.grn{background:var(--green2);color:var(--green);border-color:rgba(0,223,160,.22)}
+.btn.sml{flex:0;min-width:auto;padding:6px 12px;font-size:12px}
+.gpanel{background:var(--bg1);border:1px solid rgba(176,124,240,.2);border-radius:var(--r2);padding:1.75rem;margin-bottom:.9rem;position:relative;overflow:hidden}
+.gpanel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.gtitle{font-family:'Space Mono',monospace;font-size:.95rem;color:var(--purple);font-weight:700;margin-bottom:.4rem}
+.gclock{font-family:'Space Mono',monospace;font-size:3.2rem;font-weight:700;color:var(--text);line-height:1;margin:.4rem 0}
+.gbar{background:var(--bg3);border-radius:999px;height:3px;margin:.9rem 0;overflow:hidden}
+.gfill{height:100%;border-radius:999px;background:var(--purple);transition:width 1s linear}
+.flash{background:rgba(0,223,160,.06);border:1px solid rgba(0,223,160,.18);border-radius:var(--r);padding:13px 16px;margin-bottom:1rem;display:flex;align-items:center;gap:13px;animation:sdn .4s ease}
+@keyframes sdn{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.flashn{font-family:'Space Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--green)}
+.toast{position:fixed;top:1.1rem;left:50%;transform:translateX(-50%);width:min(440px,calc(100vw - 2rem));background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:12px 16px;font-size:14px;font-weight:500;z-index:9999;box-shadow:0 8px 36px rgba(0,0,0,.7);animation:tin .3s ease;pointer-events:none}
+@keyframes tin{from{transform:translateX(-50%) translateY(-10px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+.toast.s{border-color:rgba(0,223,160,.28);color:var(--green)}.toast.w{border-color:rgba(255,63,106,.28);color:var(--red)}
+.toast.i{border-color:rgba(245,196,48,.28);color:var(--gold)}.toast.p{border-color:rgba(176,124,240,.28);color:var(--purple)}
+.pts-summary{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);padding:1.1rem 1.4rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:1.3rem;flex-wrap:wrap;gap:10px}
+.psl{font-size:10px;color:var(--text2);font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px}
+.psv{font-family:'Space Mono',monospace;font-size:1.4rem;color:var(--gold);font-weight:700}
+.rg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:1.3rem}
+.rc{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);padding:1.35rem;transition:all .2s;position:relative}
+.rc.can{cursor:pointer}.rc.can:hover{transform:translateY(-3px);box-shadow:0 10px 36px rgba(0,0,0,.45);border-color:rgba(245,196,48,.28)}
+.rc.locked{opacity:.4;cursor:not-allowed}
+.ric{font-size:2rem;margin-bottom:.65rem;display:block;line-height:1}
+.rn{font-size:.95rem;font-weight:700;margin-bottom:.25rem}
+.rd{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:.8rem}
+.rcost{display:inline-flex;align-items:center;gap:4px;background:var(--gold3);border:1px solid rgba(245,196,48,.18);border-radius:999px;padding:3px 11px;font-family:'Space Mono',monospace;font-size:11px;color:var(--gold);font-weight:700;margin-bottom:.8rem}
+.rf{display:flex;align-items:center;justify-content:space-between;gap:7px}
+.ra{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.ra.yes{color:var(--green)}.ra.no{color:var(--text3)}
+.rbuy{padding:7px 14px;border-radius:7px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .18s}
+.rbuy.can{background:var(--gold);color:#06070e}.rbuy.can:hover{background:var(--gold2)}
+.rbuy.locked{background:var(--bg3);color:var(--text3);cursor:not-allowed;border:1px solid var(--border)}
+.ar-box{background:rgba(176,124,240,.07);border:1px solid rgba(176,124,240,.18);border-radius:var(--r2);padding:1.1rem 1.3rem;margin-bottom:1.3rem;display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.ar-info{flex:1}.ar-title{font-size:11px;font-weight:700;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px}
+.ar-time{font-family:'Space Mono',monospace;font-size:1.3rem;font-weight:700}
+.ar-bar{background:var(--bg3);border-radius:999px;height:3px;margin-top:.5rem;overflow:hidden}
+.ar-fill{height:100%;border-radius:999px;background:var(--purple);transition:width 1s linear}
+.hist-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:1.3rem}
+.hstat{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);padding:.9rem 1.1rem}
+.hstat-lbl{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem}
+.hstat-val{font-family:'Space Mono',monospace;font-size:1.2rem;font-weight:700}
+.hstat-val.gold{color:var(--gold)}.hstat-val.green{color:var(--green)}
+.sess-list{display:flex;flex-direction:column;gap:10px}
+.sess-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;transition:border-color .2s}
+.sess-card:hover{border-color:var(--border2)}
+.sess-header{display:flex;align-items:center;gap:12px;padding:1rem 1.25rem;cursor:pointer;user-select:none}
+.sess-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sess-icon.study{background:rgba(0,223,160,.1)}.sess-icon.reset{background:var(--red2)}.sess-icon.spend{background:rgba(176,124,240,.1)}
+.sess-meta{flex:1;min-width:0}
+.sess-title{font-size:14px;font-weight:700;margin-bottom:3px}
+.sess-sub{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace}
+.sess-pts{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;white-space:nowrap}
+.sess-pts.earn{color:var(--gold)}.sess-pts.zero{color:var(--red)}.sess-pts.spend{color:var(--text3)}
+.sess-chevron{font-size:12px;color:var(--text3);transition:transform .2s;flex-shrink:0}
+.sess-chevron.open{transform:rotate(90deg)}
+.sess-detail{border-top:1px solid var(--border);padding:1.25rem;display:none}
+.sess-detail.open{display:block}
+.ev-timeline{position:relative;padding-left:20px;margin-bottom:1.25rem}
+.ev-timeline::before{content:'';position:absolute;left:6px;top:8px;bottom:8px;width:1px;background:var(--border2)}
+.ev-item{position:relative;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px}
+.ev-item:last-child{margin-bottom:0}
+.ev-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;margin-top:3px;position:absolute;left:-17px;border:2px solid var(--bg1)}
+.ev-dot.start{background:var(--green)}.ev-dot.end{background:var(--text3)}
+.ev-dot.away{background:var(--orange)}.ev-dot.back{background:var(--green)}
+.ev-dot.break{background:var(--blue)}.ev-dot.resume{background:var(--blue)}
+.ev-dot.distract{background:var(--red)}
+.ev-body{flex:1}
+.ev-label{font-size:13px;font-weight:600}
+.ev-label.away{color:var(--orange)}.ev-label.back{color:var(--green)}.ev-label.start{color:var(--green)}
+.ev-label.end{color:var(--text2)}.ev-label.break{color:var(--blue)}.ev-label.resume{color:var(--blue)}
+.ev-label.distract{color:var(--red)}
+.ev-time{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace}
+.detail-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:7px;margin-bottom:1.1rem}
+.ds{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.7rem .9rem}
+.ds-lbl{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:.3rem}
+.ds-val{font-family:'Space Mono',monospace;font-size:1rem;font-weight:700}
+.vid-section{margin-top:1rem}
+.vid-title{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between}
+.vid-player{width:100%;border-radius:var(--r);background:#000;border:1px solid var(--border2);overflow:hidden;aspect-ratio:16/9}
+.vid-player video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1)}
+.vid-placeholder{width:100%;aspect-ratio:16/9;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text3);font-size:13px}
+.dl-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;transition:all .2s;text-decoration:none}
+.dl-btn:hover{background:var(--bg4);border-color:var(--border3)}
+.shdr{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-weight:700;margin-bottom:.65rem}
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--text3);font-size:13px;line-height:1.8}
+.hint{font-size:11px;color:var(--text3);text-align:center;margin-top:.65rem;line-height:1.7}
+.sp{height:.7rem}
+</style>
+</head>
+<body>
+<canvas id="fish-canvas"></canvas>
+<div class="wrap" id="root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+// ══════════════════════════════════════════════
+// FISH BACKGROUND
+// ══════════════════════════════════════════════
+(function(){
+  const cv=document.getElementById('fish-canvas'),ctx=cv.getContext('2d');
+  function rsz(){cv.width=innerWidth;cv.height=innerHeight;}rsz();addEventListener('resize',rsz);
+  const pal=[['#1a4a6b','#2d7da8','#4aadcc'],['#0d3d52','#1b6e7a','#30b5a0'],['#3a2060','#6b3fa0','#9b6fd4'],['#4a3010','#a06020','#f4c430']];
+  class Fish{
+    constructor(init){this.reset(!init);}
+    reset(off){
+      this.y=Math.random()*cv.height;this.x=off?-130:Math.random()*cv.width;
+      this.spd=0.28+Math.random()*.55;this.sz=15+Math.random()*32;
+      this.wob=0;this.ws=0.026+Math.random()*.036;this.wa=0.6+Math.random()*1.4;
+      this.tp=Math.random()*Math.PI*2;this.op=0.09+Math.random()*.2;
+      const p=pal[Math.floor(Math.random()*pal.length)];this.bc=p[1];this.fc=p[0];this.sc=p[2];
+      this.bb=[];this.bt=Math.random()*200;
+    }
+    draw(){
+      ctx.save();ctx.globalAlpha=this.op;ctx.translate(this.x,this.y);ctx.rotate(Math.sin(this.wob)*.07);
+      const s=this.sz,tl=Math.sin(this.tp)*s*.35;
+      ctx.beginPath();ctx.moveTo(-s*.5,0);ctx.lineTo(-s,-s*.27+tl*.5);ctx.lineTo(-s*.8,0);ctx.lineTo(-s,s*.27-tl*.5);ctx.closePath();ctx.fillStyle=this.fc;ctx.fill();
+      ctx.beginPath();ctx.ellipse(0,0,s*.56,s*.25,0,0,Math.PI*2);ctx.fillStyle=this.bc;ctx.fill();
+      ctx.beginPath();ctx.arc(s*.4,-s*.04,s*.054,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+      ctx.beginPath();ctx.arc(s*.42,-s*.04,s*.03,0,Math.PI*2);ctx.fillStyle='#06070f';ctx.fill();
+      this.bb.forEach(b=>{ctx.save();ctx.globalAlpha=b.life*.25;ctx.strokeStyle=this.sc;ctx.lineWidth=.5;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.stroke();ctx.restore();});
+      ctx.restore();
+    }
+    update(){
+      this.x+=this.spd;this.wob+=this.ws;this.tp+=.1;this.y+=Math.sin(this.wob)*this.wa*.15;
+      this.bt--;if(this.bt<=0){this.bb.push({x:this.x+10,y:this.y-6,r:1+Math.random()*1.8,vy:.25+Math.random()*.35,life:1});this.bt=80+Math.random()*160;}
+      this.bb=this.bb.filter(b=>{b.y-=b.vy;b.life-=.009;return b.life>0;});
+      if(this.x>cv.width+140)this.reset(true);
+    }
+  }
+  const fish=Array.from({length:12},(_,i)=>new Fish(i===0));
+  (function loop(){ctx.clearRect(0,0,cv.width,cv.height);fish.forEach(f=>{f.update();f.draw();});requestAnimationFrame(loop);})();
+})();
+
+// ══════════════════════════════════════════════
+// STORAGE
+// ══════════════════════════════════════════════
+const SK='fp_v7';
+function loadSaved(){try{const d=localStorage.getItem(SK);return d?JSON.parse(d):null;}catch{return null;}}
+function persist(){
+  try{
+    const sessToStore=S.sessionHistory.slice(0,20).map(s=>({...s,videoURL:null,videoBlob:null}));
+    localStorage.setItem(SK,JSON.stringify({
+      points:S.points,totalEarned:S.totalEarned,totalSpent:S.totalSpent,
+      streak:S.streak,lastStudyDate:S.lastStudyDate,totalStudyMins:S.totalStudyMins,
+      sessionHistory:sessToStore
+    }));
+  }catch(e){}
+}
+const sv=loadSaved();
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const S={
+  points:sv?.points??0,totalEarned:sv?.totalEarned??0,totalSpent:sv?.totalSpent??0,
+  streak:sv?.streak??0,lastStudyDate:sv?.lastStudyDate??null,totalStudyMins:sv?.totalStudyMins??0,
+  sessionHistory:sv?.sessionHistory??[],
+  phase:'idle',
+  studySecs:0,distractSecs:0,breakSecs:0,gamingSecs:0,gamingLeft:0,
+  sessionStart:0,pausedMs:0,
+  personGoneTs:null,personGoneSecs:0,
+  lastActivity:Date.now(),tabHidden:false,
+  awayPauseCount:0,
+  events:[],
+  camEnabled:false,camStream:null,camMock:false,
+  poseDetector:null,poseReady:false,
+  personConfidence:0,personPresent:true,
+  mediaRecorder:null,recChunks:[],recBlob:null,recURL:null,isRecording:false,
+  tab:'study',toast:null,flash:null,
+  mainInterval:null,gamingInterval:null,camPollInterval:null,
+  expandedSessions:{},
+};
+
+const AWAY_PAUSE_LIM=120,BREAK_LIM=300,DIST_LIM=120,INACT_LIM=120;
+
+const SHOP=[
+  {id:1,emoji:'⚡',name:'Quick Game',desc:'15 minutes of guilt-free gaming.',mins:15,cost:50},
+  {id:2,emoji:'🎮',name:'Gaming Session',desc:'30 minutes of gaming time.',mins:30,cost:100},
+  {id:3,emoji:'🎬',name:'Movie Break',desc:'60 minutes — watch something you love.',mins:60,cost:200},
+  {id:4,emoji:'🌴',name:'Half Day Off',desc:'4 hours of total, earned freedom.',mins:240,cost:600},
+];
+
+function fmt(s){s=Math.max(0,Math.floor(s));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60,p=n=>String(n).padStart(2,'0');return h>0?`${p(h)}:${p(m)}:${p(sec)}`:`${p(m)}:${p(sec)}`;}
+function timeStr(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function dayStr(){return new Date().toLocaleDateString([],{weekday:'short',month:'short',day:'numeric',year:'numeric'});}
+function calcPts(secs){if(secs>=10800)return 150;if(secs>=7200)return 100;if(secs>=3600)return 50;if(secs>=1800)return 20;return 0;}
+function ptsPreview(secs){if(secs>=10800)return '150 pts (3h bonus!)';if(secs>=7200)return '100 pts';if(secs>=3600)return '50 pts';if(secs>=1800)return '20 pts';return 'Need 30+ min for points';}
+function progPct(){return Math.min(100,(S.studySecs/10800)*100);}
+function confColor(c){return c>0.6?'var(--green)':c>0.3?'var(--gold)':'var(--red)';}
+function logEvent(type,label){S.events.push({type,label,wallTime:timeStr(),studySecs:S.studySecs});}
+
+let toastTmr=null;
+function toast(msg,type='i',dur=3500){S.toast={msg,type};render();clearTimeout(toastTmr);toastTmr=setTimeout(()=>{S.toast=null;render();},dur);}
+
+// ══════════════════════════════════════════════
+// POSE DETECTION
+// ══════════════════════════════════════════════
+async function loadPoseDetector(){
+  try{
+    if(typeof poseDetection==='undefined') return;
+    S.poseDetector=await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
+    );
+    S.poseReady=true;
+  }catch(e){console.warn('[FP] Pose detector unavailable:',e);}
+}
+
+async function runPose(){
+  if(!S.poseReady||!S.poseDetector||S.camMock) return;
+  const v=document.getElementById('cam-vid');
+  if(!v||v.readyState<2||v.videoWidth===0) return;
+  try{
+    const poses=await S.poseDetector.estimatePoses(v);
+    let conf=0;
+    if(poses&&poses.length>0){
+      const kps=poses[0].keypoints;
+      const imp=[0,1,2,3,4,5,6,11,12];
+      let sum=0,cnt=0;
+      kps.forEach((k,i)=>{const w=imp.includes(i)?2:1;sum+=k.score*w;cnt+=w;});
+      conf=sum/cnt;
+      drawSkeleton(poses[0],v.videoWidth,v.videoHeight);
+    }
+    S.personConfidence=conf;
+    const wasPresent=S.personPresent;
+    S.personPresent=conf>0.18;
+    if(wasPresent!==S.personPresent) onPresenceChange();
+  }catch(e){}
+}
+
+function drawSkeleton(pose,vw,vh){
+  const oc=document.getElementById('pose-canvas');if(!oc) return;
+  const ctx=oc.getContext('2d');oc.width=100;oc.height=75;ctx.clearRect(0,0,100,75);
+  const sx=100/vw,sy=75/vh;
+  const mx=x=>100-x*sx,my=y=>y*sy;
+  const edges=[[5,6],[5,7],[7,9],[6,8],[8,10],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16],[0,1],[0,2],[1,3],[2,4]];
+  const kps=pose.keypoints;
+  ctx.strokeStyle='rgba(0,223,160,.5)';ctx.lineWidth=1.2;
+  edges.forEach(([a,b])=>{
+    const ka=kps[a],kb=kps[b];
+    if(!ka||!kb||ka.score<0.25||kb.score<0.25) return;
+    ctx.beginPath();ctx.moveTo(mx(ka.x),my(ka.y));ctx.lineTo(mx(kb.x),my(kb.y));ctx.stroke();
+  });
+  kps.forEach(kp=>{
+    if(kp.score<0.25) return;
+    ctx.beginPath();ctx.arc(mx(kp.x),my(kp.y),2,0,Math.PI*2);
+    ctx.fillStyle=kp.score>0.6?'var(--green)':'rgba(0,223,160,.5)';ctx.fill();
+  });
+}
+
+function startCamPoll(){
+  clearInterval(S.camPollInterval);
+  S.camPollInterval=setInterval(async()=>{
+    await runPose();
+    if(!S.personPresent&&S.personGoneTs&&(S.phase==='focused'||S.phase==='break')){
+      S.personGoneSecs=Math.floor((Date.now()-S.personGoneTs)/1000);
+      render();
+    }
+  },1500);
+}
+
+function onPresenceChange(){
+  const p=S.phase;
+  if(!S.personPresent){
+    if(p==='focused'||p==='break'){
+      S.personGoneTs=Date.now();S.personGoneSecs=0;
+      logEvent('away','Left camera frame');
+    }
+  }else{
+    S.personGoneTs=null;S.personGoneSecs=0;
+    if(p==='away'){resumeFromAway();}
+    else{logEvent('back','Returned to frame');}
+  }
+  render();
+}
+
+// ══════════════════════════════════════════════
+// CAMERA
+// ══════════════════════════════════════════════
+async function enableCamera(auto){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false
+    });
+    S.camStream=stream;S.camMock=false;S.camEnabled=true;
+    S.personPresent=true;S.personGoneTs=null;S.personGoneSecs=0;S.personConfidence=0;
+    render();
+    setTimeout(()=>{const v=document.getElementById('cam-vid');if(v&&stream){v.srcObject=stream;v.play().catch(()=>{});}},80);
+    if(!S.poseReady) loadPoseDetector().then(()=>startCamPoll());
+    else startCamPoll();
+    if(!auto) toast('Camera enabled — pose detection active 🤸','s');
+  }catch(e){
+    S.camMock=true;S.camEnabled=true;S.personPresent=true;S.personConfidence=0.85;
+    render();animateMockCam();
+    if(!auto) toast('Camera simulated — allow permission for real AI detection','i');
+  }
+}
+
+function disableCamera(){
+  if(S.phase!=='idle'&&S.phase!=='gaming'){toast('Camera stays locked during a session. End session first.','w');return;}
+  if(S.camStream){S.camStream.getTracks().forEach(t=>t.stop());S.camStream=null;}
+  S.camEnabled=false;S.camMock=false;S.poseReady=false;S.poseDetector=null;
+  clearInterval(S.camPollInterval);S.camPollInterval=null;
+  S.personPresent=true;S.personGoneTs=null;S.personGoneSecs=0;S.personConfidence=0;
+  render();toast('Camera disabled.','i');
+}
+
+function animateMockCam(){
+  let t=0;
+  function draw(){
+    if(!S.camEnabled||!S.camMock) return;
+    const c=document.getElementById('cam-mock-c');if(!c) return;
+    const ctx=c.getContext('2d');c.width=100;c.height=75;
+    ctx.fillStyle='#080d16';ctx.fillRect(0,0,100,75);
+    for(let y=0;y<75;y+=3){ctx.fillStyle='rgba(0,223,160,.02)';ctx.fillRect(0,y,100,1);}
+    const g=ctx.createRadialGradient(50,33,2,50,33,22);
+    g.addColorStop(0,'rgba(0,223,160,.15)');g.addColorStop(1,'rgba(0,223,160,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(50,33,19,24,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(0,223,160,.28)';ctx.lineWidth=.8;
+    ctx.beginPath();ctx.ellipse(50,33,15,20,0,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='rgba(0,223,160,.4)';
+    [[43,29],[57,29]].forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,2,0,Math.PI*2);ctx.fill();});
+    ctx.fillStyle='rgba(0,223,160,.06)';ctx.fillRect(0,(t*.65)%75,100,1.5);
+    t++;if(S.camEnabled&&S.camMock) requestAnimationFrame(draw);
+  }
+  setTimeout(draw,60);
+}
+
+// ══════════════════════════════════════════════
+// VIDEO RECORDING
+// ══════════════════════════════════════════════
+function startRecording(){
+  if(!S.camStream||S.isRecording||S.camMock) return;
+  try{
+    const mimes=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+    const mime=mimes.find(m=>MediaRecorder.isTypeSupported(m))||'';
+    S.recChunks=[];
+    S.mediaRecorder=new MediaRecorder(S.camStream,mime?{mimeType:mime}:{});
+    S.mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0)S.recChunks.push(e.data);};
+    S.mediaRecorder.onstop=()=>{
+      const blob=new Blob(S.recChunks,{type:mime||'video/webm'});
+      S.recBlob=blob;
+      if(S.recURL) URL.revokeObjectURL(S.recURL);
+      S.recURL=URL.createObjectURL(blob);
+    };
+    S.mediaRecorder.start(500);
+    S.isRecording=true;
+  }catch(e){console.warn('[FP] Recording failed:',e);}
+}
+
+function stopRecording(){
+  return new Promise(resolve=>{
+    if(!S.isRecording||!S.mediaRecorder){resolve();return;}
+    const safety=setTimeout(()=>{S.isRecording=false;resolve();},2000);
+    S.mediaRecorder.onstop=()=>{
+      clearTimeout(safety);
+      try{
+        const blob=new Blob(S.recChunks,{type:'video/webm'});
+        S.recBlob=blob;
+        if(S.recURL) URL.revokeObjectURL(S.recURL);
+        S.recURL=URL.createObjectURL(blob);
+      }catch(e){}
+      S.isRecording=false;
+      resolve();
+    };
+    try{S.mediaRecorder.stop();}catch(e){clearTimeout(safety);S.isRecording=false;resolve();}
+  });
+}
+
+// ══════════════════════════════════════════════
+// STUDY LOGIC
+// ══════════════════════════════════════════════
+function startStudy(){
+  if(S.phase!=='idle') return;
+  if(!S.camEnabled){
+    enableCamera(true).then(()=>setTimeout(_doStart,500));
+    return;
+  }
+  _doStart();
+}
+
+function _doStart(){
+  S.phase='focused';
+  S.studySecs=0;S.distractSecs=0;S.breakSecs=0;
+  S.awayPauseCount=0;S.pausedMs=0;S.sessionStart=Date.now();
+  S.personGoneTs=null;S.personGoneSecs=0;S.personPresent=true;
+  S.recBlob=null;S.recURL=null;S.events=[];
+  S.lastActivity=Date.now();
+  logEvent('start','Session started');
+  clearInterval(S.mainInterval);
+  S.mainInterval=setInterval(tick,1000);
+  startRecording();
+  render();
+  toast('Session started — recording 🔴','s',3000);
+}
+
+function endStudy(success,reason){
+  const validPhases=['focused','break','away','distracted'];
+  if(!validPhases.includes(S.phase)) return;
+
+  clearInterval(S.mainInterval);S.mainInterval=null;
+
+  // Compute final time RIGHT NOW before anything changes
+  const finalStudySecs=Math.max(0,Math.floor((Date.now()-S.sessionStart)/1000)-Math.floor(S.pausedMs/1000));
+  const mins=Math.round(finalStudySecs/60);
+
+  logEvent('end',success?'Session ended':'Session cancelled');
+
+  const pts=success?calcPts(finalStudySecs):0;
+
+  // Snapshot session record (videoURL filled in after recording stops)
+  const rv={
+    id:Date.now(),date:dayStr(),time:timeStr(),mins,pts,
+    success,reason:reason||'',
+    awayPauseCount:S.awayPauseCount,
+    events:[...S.events],
+    videoURL:null,videoBlob:null,
+  };
+  S.sessionHistory.unshift(rv);
+  S.sessionHistory=S.sessionHistory.slice(0,30);
+
+  // Reset ALL session state to idle FIRST — before any toast/render calls
+  S.phase='idle';
+  S.pausedMs=0;S.sessionStart=0;S.studySecs=0;S.breakSecs=0;S.distractSecs=0;
+  S.awayPauseCount=0;S.personGoneTs=null;S.personGoneSecs=0;S.events=[];
+
+  // Award points
+  if(success&&pts>0){
+    S.points+=pts;S.totalEarned+=pts;S.totalStudyMins+=mins;
+    updateStreak();
+    S.flash=pts;
+  }
+
+  persist();
+  render(); // Draw idle UI immediately
+
+  // Toast AFTER render so it doesn't trigger a premature re-render mid-reset
+  if(success&&pts>0){
+    toast(`+${pts} points! Balance: ${S.points.toLocaleString()} pts 🏆`,'s',5000);
+  }else if(success){
+    toast('Session ended — need 30+ min for points.','w',4000);
+  }else{
+    toast(reason==='cam-away'?'📷 Away too long — session ended.':'⚠ Session ended.','w',5000);
+  }
+
+  // Stop recording in background; patch videoURL into history entry when done
+  stopRecording().then(()=>{
+    if(S.recURL){
+      rv.videoURL=S.recURL;
+      rv.videoBlob=S.recBlob;
+      if(S.tab==='history') render();
+    }
+  });
+}
+
+function updateStreak(){
+  const today=new Date().toDateString();
+  if(S.lastStudyDate!==today){
+    const yest=new Date(Date.now()-86400000).toDateString();
+    S.streak=S.lastStudyDate===yest?S.streak+1:1;
+    S.lastStudyDate=today;
+  }
+}
+
+function takeBreak(){
+  if(S.phase!=='focused') return;
+  // Snapshot current studySecs before entering break
+  S.studySecs=Math.max(0,Math.floor((Date.now()-S.sessionStart)/1000)-Math.floor(S.pausedMs/1000));
+  S.phase='break';S.breakSecs=0;
+  logEvent('break','Took a break');render();
+}
+
+function resumeStudy(){
+  if(S.phase!=='break') return;
+  S.pausedMs+=S.breakSecs*1000;S.breakSecs=0;
+  S.phase='focused';S.lastActivity=Date.now();
+  logEvent('resume','Resumed study');render();
+}
+
+function resumeFromAway(){
+  if(S.phase!=='away') return;
+  S.phase='focused';S.personGoneTs=null;S.personGoneSecs=0;
+  logEvent('back','Returned to camera — resumed');
+  toast('Back in frame — session resumed 👋','s',2500);render();
+}
+
+function returnFocus(){
+  S.lastActivity=Date.now();S.phase='focused';S.distractSecs=0;
+  logEvent('resume','Returned to focus');
+  toast('Back in focus! ✅','s',2000);render();
+}
+
+function tick(){
+  // Don't tick during async ending phase
+  if(S.phase==='idle'||S.phase==='gaming') return;
+  const p=S.phase;
+
+  // Camera absence → auto-pause countdown
+  if(S.camEnabled&&!S.camMock&&!S.personPresent&&S.personGoneTs&&(p==='focused'||p==='break')){
+    S.personGoneSecs=Math.floor((Date.now()-S.personGoneTs)/1000);
+    if(S.personGoneSecs>=AWAY_PAUSE_LIM){
+      S.phase='away';
+      S.pausedMs+=S.personGoneSecs*1000;
+      S.awayPauseCount++;
+      S.personGoneTs=null;S.personGoneSecs=0;
+      logEvent('away','Auto-paused — left camera');
+      toast('Auto-paused — not in frame. Return to resume! 📷','w',6000);
+      render();return;
+    }
+  }
+
+  if(p==='focused'){
+    // ── FIX: always compute from wall clock — works even when tab is hidden ──
+    S.studySecs=Math.max(0,Math.floor((Date.now()-S.sessionStart)/1000)-Math.floor(S.pausedMs/1000));
+
+    // ── FIX: tab switching no longer triggers distraction ──
+    // Only flag inactivity if the user is ON this tab and hasn't moved in 2 min
+    const ia=(Date.now()-S.lastActivity)/1000;
+    if(!S.tabHidden&&ia>INACT_LIM){
+      S.phase='distracted';S.distractSecs=0;
+      logEvent('distract','Inactive on this tab');
+      toast('No activity here — move your mouse or switch back!','w',4000);
+    }
+  }else if(p==='break'){
+    S.breakSecs++;
+    if(S.breakSecs>=BREAK_LIM){
+      S.pausedMs+=S.breakSecs*1000;S.breakSecs=0;
+      S.phase='distracted';S.distractSecs=0;
+    }
+  }else if(p==='away'){
+    S.pausedMs+=1000;
+  }else if(p==='distracted'){
+    S.distractSecs++;S.pausedMs+=1000;
+    if(S.distractSecs>=DIST_LIM){endStudy(false);return;}
+    // Recover when user comes back to this tab and moves mouse
+    if(!S.tabHidden&&(Date.now()-S.lastActivity)/1000<3){
+      S.phase='focused';S.distractSecs=0;
+      logEvent('resume','Returned from distraction');
+      toast('Welcome back! 👋','s',2000);
+    }
+  }
+  render();
+}
+
+function buyReward(item){
+  if(S.points<item.cost){toast('Not enough points! Keep studying 📚','w');return;}
+  if(S.phase==='gaming'){toast('A reward is already active!','w');return;}
+  S.points-=item.cost;S.totalSpent=(S.totalSpent||0)+item.cost;
+  if(S.phase!=='idle'){clearInterval(S.mainInterval);S.phase='idle';S.studySecs=0;}
+  S.gamingSecs=item.mins*60;S.gamingLeft=item.mins*60;S.phase='gaming';
+  const entry={id:Date.now(),date:dayStr(),time:timeStr(),type:'spend',pts:item.cost,name:item.name,mins:item.mins,events:[],success:true,awayPauseCount:0};
+  S.sessionHistory.unshift(entry);persist();
+  clearInterval(S.gamingInterval);
+  S.gamingInterval=setInterval(()=>{
+    S.gamingLeft--;
+    if(S.gamingLeft<=0){clearInterval(S.gamingInterval);S.phase='idle';persist();toast(`${item.name} time is up! Back to studying 📚`,'p',6000);}
+    render();
+  },1000);
+  toast(`🎉 ${item.name} unlocked! ${item.mins} minutes — enjoy!`,'p',4000);render();
+}
+
+// ══════════════════════════════════════════════
+// EVENTS
+// ══════════════════════════════════════════════
+document.addEventListener('visibilitychange',()=>{
+  S.tabHidden=document.hidden;
+  // ── FIX: switching tabs no longer triggers distraction ──
+  // Just track visibility; timer runs via wall clock regardless
+  if(!document.hidden) S.lastActivity=Date.now();
+});
+['mousemove','keydown','mousedown','touchstart','scroll'].forEach(e=>
+  document.addEventListener(e,()=>{S.lastActivity=Date.now();},{passive:true})
+);
+
+// ══════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════
+function render(){
+  const root=document.getElementById('root');if(!root)return;
+  const p=S.phase;
+  const displayPhase=p;
+  const siMap={
+    idle:{d:'idle',t:'idle',l:'Ready to Focus'},
+    focused:{d:'focused',t:'focused',l:'In the Zone'},
+    break:{d:'break',t:'break',l:'On Break'},
+    away:{d:'away',t:'away',l:'Auto-Paused — Not in Frame'},
+    distracted:{d:'distracted',t:'distracted',l:'Distraction Detected!'},
+    gaming:{d:'gaming',t:'gaming',l:'Gaming Mode'},
+  };
+  const si=siMap[p]||siMap.idle;
+  const ia=Math.round((Date.now()-S.lastActivity)/1000);
+  const sub=displayPhase==='focused'&&ia>30?`Inactive ${ia}s`
+    :displayPhase==='break'?`Break: ${fmt(BREAK_LIM-S.breakSecs)} left`
+    :displayPhase==='away'?'Return to camera to resume'
+    :displayPhase==='distracted'?`Reset in ${DIST_LIM-S.distractSecs}s`
+    :displayPhase==='gaming'?`${fmt(S.gamingLeft)} left`:'';
+
+  root.innerHTML=`
+    ${S.toast?`<div class="toast ${S.toast.type}">${S.toast.msg}</div>`:''}
+    <div class="hdr">
+      <div class="logo">Focus<em>Points</em></div>
+      <div class="hdr-right">
+        ${S.streak>0?`<div class="streak-pill">🔥 ${S.streak}-day streak</div>`:''}
+        <div class="pts-pill"><span class="pts-num">${S.points.toLocaleString()}</span><span class="pts-lbl">pts</span></div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nb ${S.tab==='study'?'active':''}" onclick="setTab('study')">📚 Study</div>
+      <div class="nb ${S.tab==='rewards'?'active':''}" onclick="setTab('rewards')">🛍 Rewards${displayPhase==='gaming'?'<span class="nbadge"></span>':''}</div>
+      <div class="nb ${S.tab==='history'?'active':''}" onclick="setTab('history')">📼 History</div>
+    </div>
+    <div class="ss">
+      <div class="sd ${si.d}"></div>
+      <div class="st ${si.t}">${si.l}</div>
+      ${sub?`<div class="ssub">${sub}</div>`:''}
+    </div>
+    ${S.tab==='study'?renderStudy():''}
+    ${S.tab==='rewards'?renderRewards():''}
+    ${S.tab==='history'?renderHistory():''}
+  `;
+
+  if(S.camEnabled){
+    if(!S.camMock){
+      const v=document.getElementById('cam-vid');
+      if(v&&S.camStream&&!v.srcObject){v.srcObject=S.camStream;v.play().catch(()=>{});}
+    }else{
+      const c=document.getElementById('cam-mock-c');
+      if(c&&!c._running){c._running=true;animateMockCam();}
+    }
+  }
+  if(S.flash){setTimeout(()=>{S.flash=null;render();},4500);}
+}
+
+// ── Study Tab ──────────────────────────────────
+function renderStudy(){
+  const p=S.phase;
+  const inSess=p==='focused'||p==='break'||p==='away'||p==='distracted';
+  const pct=progPct();
+  const m30=S.studySecs>=1800,m1=S.studySecs>=3600,m2=S.studySecs>=7200,m3=S.studySecs>=10800;
+  const tc=({focused:'focused',distracted:'distracted',away:'away',gaming:'gaming'})[p]||'';
+  const td=({focused:'focused',distracted:'distracted',away:'away'})[p]||'idle';
+  const locked=inSess;
+  const conf=S.personConfidence;
+
+  let thumbHtml;
+  if(S.camEnabled){
+    if(S.camMock){
+      thumbHtml=`<canvas id="cam-mock-c" width="100" height="75" style="width:100%;height:100%;display:block"></canvas>`;
+    }else{
+      thumbHtml=`<video id="cam-vid" autoplay muted playsinline></video><canvas id="pose-canvas"></canvas>`;
+    }
+  }else{
+    thumbHtml=`<div class="cam-off-ico">📷</div>`;
+  }
+
+  let camStatHtml='';
+  if(S.camEnabled){
+    if(S.camMock){
+      camStatHtml=`<span class="cdot" style="background:var(--gold)"></span><span style="color:var(--gold)">Simulated — grant permission for real detection</span>`;
+    }else if(!S.personPresent&&S.personGoneSecs>0&&p!=='away'){
+      const left=Math.max(0,AWAY_PAUSE_LIM-S.personGoneSecs);
+      camStatHtml=`<span class="cdot" style="background:var(--orange)"></span><span style="color:var(--orange)">Not in frame — auto-pause in ${left}s</span>`;
+    }else if(p==='away'){
+      camStatHtml=`<span class="cdot" style="background:var(--orange)"></span><span style="color:var(--orange)">Auto-paused — step back into view</span>`;
+    }else{
+      camStatHtml=`<span class="cdot" style="background:var(--green)"></span><span style="color:var(--green)">Person detected ✓</span>`;
+    }
+  }
+
+  return `
+  ${S.flash?`<div class="flash"><span style="font-size:1.6rem">🏆</span><div><div class="flashn">+${S.flash} points!</div><div style="font-size:12px;color:var(--text2);margin-top:3px">Balance: ${S.points.toLocaleString()} pts — saved.</div></div></div>`:''}
+  <div class="cam-w ${locked?'locked':''} ${p==='away'?'away-state':''}">
+    <div class="cam-thumb">${thumbHtml}</div>
+    <div class="cam-info">
+      <div class="cam-title">
+        Presence Monitor
+        ${locked?`<span style="font-size:10px;color:var(--green);font-weight:700">🔒 LOCKED</span>`:''}
+        ${S.isRecording?`<span class="rec-badge"><span class="rec-dot"></span> REC</span>`:''}
+        ${S.poseReady&&!S.camMock?`<span style="font-size:10px;color:var(--text3)">MoveNet AI</span>`:''}
+      </div>
+      <div class="cam-desc">${S.camEnabled
+        ?(locked?'Recording. Leave frame 2+ min → auto-pause (time saved). Return → auto-resume.'
+                :'Camera auto-starts with session. Leave 2+ min → auto-pause. Return → auto-resume.')
+        :'Camera starts automatically with your session. AI pose detection tracks your presence.'}</div>
+      ${S.camEnabled?`<div class="cam-stat">${camStatHtml}</div>`:''}
+      ${S.camEnabled&&!S.camMock?`<div class="conf-row">
+        <div class="conf-bg"><div class="conf-fill" style="width:${Math.round(conf*100)}%;background:${confColor(conf)}"></div></div>
+        <div class="conf-pct" style="color:${confColor(conf)}">${Math.round(conf*100)}%</div>
+      </div>`:''}
+    </div>
+    <button class="cbtn ${S.camEnabled?'on':''}" onclick="${S.camEnabled?'disableCam()':'enableCam(false)'}" ${locked?'disabled':''}>
+      ${locked?'🔒 Locked':S.camEnabled?'🔴 Disable':'📷 Enable'}
+    </button>
+  </div>
+
+  ${p==='gaming'?`
+  <div class="gpanel">
+    <div class="gtitle">🎮 REWARD ACTIVE</div>
+    <div class="gclock">${fmt(S.gamingLeft)}</div>
+    <div class="gbar"><div class="gfill" style="width:${(S.gamingLeft/S.gamingSecs)*100}%"></div></div>
+    <div style="font-size:12px;color:var(--text2)">Enjoy your earned break! Notified when time ends.</div>
+  </div>
+  `:`
+  <div class="tc ${tc}">
+    <div class="glow"></div>
+    <div class="tlbl">${{break:'on break',away:'auto-paused',distracted:'distraction',focused:'study session'}[p]||'study session'}</div>
+    <div class="trow">
+      <div class="tdig ${td}">${fmt(S.studySecs)}</div>
+      <div class="tprev">→ <strong>${ptsPreview(S.studySecs)}</strong></div>
+    </div>
+    <div class="pbar"><div class="pfill ${p==='distracted'?'red':p==='away'?'orange':'gold'}" style="width:${pct}%"></div></div>
+    <div class="pmiles">
+      <span class="ms ${m30?'hit':''}">30m · 20pts</span>
+      <span class="ms ${m1?'hit':''}">1h · 50pts</span>
+      <span class="ms ${m2?'hit':''}">2h · 100pts</span>
+      <span class="ms ${m3?'hit':''}">3h · 150pts</span>
+    </div>
+    ${p==='break'?`<div class="wbox blue"><span>⏸</span><span>Break: <span class="wt">${fmt(BREAK_LIM-S.breakSecs)}</span> left. <button class="btn grn sml" style="display:inline-flex;margin-left:10px" onclick="resumeStudy()">Resume</button></span></div>`:''}
+    ${p==='away'?`<div class="wbox orange"><span>📷</span><span>Auto-paused — not in frame. <strong>Step back into camera view</strong> to auto-resume. Your ${fmt(S.studySecs)} is saved.</span></div>`:''}
+    ${p==='distracted'?`<div class="wbox red"><span>⚠</span><span>No activity — resetting in <span class="wt">${DIST_LIM-S.distractSecs}s</span>. Move mouse or return to tab.</span></div>`:''}
+    ${S.camEnabled&&!S.camMock&&!S.personPresent&&S.personGoneSecs>0&&p==='focused'?`<div class="wbox gold"><span>📷</span><span>Not detected — auto-pause in <span class="wt">${fmt(AWAY_PAUSE_LIM-S.personGoneSecs)}</span>. Come back!</span></div>`:''}
+    <div class="sp"></div>
+    <div class="brow">
+      ${p==='idle'?`<button class="btn primary" onclick="startStudy()">▶ Start Session</button>`:''}
+      ${p==='focused'?`<button class="btn" onclick="takeBreak()">⏸ Take Break</button><button class="btn red" onclick="endStudy(true)">⏹ End & Collect</button>`:''}
+      ${p==='break'?`<button class="btn primary" onclick="resumeStudy()">▶ Resume</button><button class="btn red" onclick="endStudy(true)">⏹ End & Collect</button>`:''}
+      ${p==='away'?`<button class="btn red" onclick="endStudy(false,'cam-away')">✕ End Session</button>`:''}
+      ${p==='distracted'?`<button class="btn primary" onclick="returnFocus()">↩ Return to Focus</button><button class="btn red" onclick="endStudy(true)">⏹ End & Collect</button>`:''}
+    </div>
+  </div>
+  `}
+  <p class="hint">Timer runs in the background while you work in other tabs · Leave frame 2 min → auto-pause<br>Return to frame → auto-resume · Video records full session · Download from History</p>`;
+}
+
+// ── Rewards Tab ─────────────────────────────
+function renderRewards(){
+  const gaming=S.phase==='gaming';
+  return `
+  <div class="pts-summary">
+    <div><div class="psl">Available Balance</div><div class="psv">${S.points.toLocaleString()} <span style="font-size:.85rem;color:var(--gold)">pts</span></div></div>
+    <div style="text-align:right"><div class="psl">Total Earned · Total Spent</div>
+      <div style="font-family:'Space Mono',monospace;font-size:12px;margin-top:4px">
+        <span style="color:var(--green)">+${S.totalEarned.toLocaleString()}</span> <span style="color:var(--text3)">· −${(S.totalSpent||0).toLocaleString()}</span>
+      </div>
+    </div>
+  </div>
+  ${gaming?`<div class="ar-box"><span style="font-size:2rem">🎮</span><div class="ar-info"><div class="ar-title">Reward Active</div><div class="ar-time">${fmt(S.gamingLeft)}</div><div class="ar-bar"><div class="ar-fill" style="width:${(S.gamingLeft/S.gamingSecs)*100}%"></div></div></div></div>`:''}
+  <div class="shdr">Redeem Points</div>
+  <div class="rg">
+    ${SHOP.map(item=>{
+      const can=S.points>=item.cost&&!gaming;
+      return `<div class="rc ${can?'can':'locked'}" ${can?`onclick="buy(${item.id})"`:''}>
+        <span class="ric">${item.emoji}</span><div class="rn">${item.name}</div>
+        <div class="rd">${item.desc}</div><div class="rcost">⬡ ${item.cost} pts</div>
+        <div class="rf"><div class="ra ${can?'yes':'no'}">${can?'✓ Available':item.cost+' pts needed'}</div>
+        <button class="rbuy ${can?'can':'locked'}" ${can?`onclick="event.stopPropagation();buy(${item.id})"`:''} ${!can?'disabled':''}>${can?'Redeem':'Locked'}</button></div>
+      </div>`;
+    }).join('')}
+  </div>
+  <p class="hint">Points never expire — save up for bigger rewards · Balance carries over forever</p>`;
+}
+
+// ── History Tab ─────────────────────────────
+function renderHistory(){
+  const studySessions=S.sessionHistory.filter(s=>s.type!=='spend'&&s.mins!=null);
+  const totalStandups=S.sessionHistory.reduce((a,s)=>a+(s.awayPauseCount||0),0);
+
+  return `
+  <div class="hist-stats">
+    <div class="hstat"><div class="hstat-lbl">Balance</div><div class="hstat-val gold">${S.points.toLocaleString()} pts</div></div>
+    <div class="hstat"><div class="hstat-lbl">Total Earned</div><div class="hstat-val green">+${S.totalEarned.toLocaleString()}</div></div>
+    <div class="hstat"><div class="hstat-lbl">Hours Studied</div><div class="hstat-val">${(S.totalStudyMins/60).toFixed(1)}h</div></div>
+    <div class="hstat"><div class="hstat-lbl">Sessions</div><div class="hstat-val">${studySessions.length}</div></div>
+    <div class="hstat"><div class="hstat-lbl">Times Left Seat</div><div class="hstat-val" style="color:var(--orange)">${totalStandups}</div></div>
+    <div class="hstat"><div class="hstat-lbl">Day Streak</div><div class="hstat-val">${S.streak} 🔥</div></div>
+  </div>
+
+  ${S.sessionHistory.length===0?`<div class="empty">No sessions yet.<br>Start your first study session to build your history!</div>`:`
+  <div class="shdr">Session History — click any session to expand</div>
+  <div class="sess-list">
+    ${S.sessionHistory.map((sess,i)=>{
+      const isOpen=!!S.expandedSessions[i];
+      if(sess.type==='spend'){
+        return `<div class="sess-card">
+          <div class="sess-header" onclick="toggleSess(${i})">
+            <div class="sess-icon spend">🛍</div>
+            <div class="sess-meta"><div class="sess-title">Redeemed: ${sess.name}</div>
+            <div class="sess-sub">${sess.date} · ${sess.time} · ${sess.mins} min reward</div></div>
+            <div class="sess-pts spend">−${sess.pts}</div>
+            <div class="sess-chevron ${isOpen?'open':''}">▶</div>
+          </div>
+        </div>`;
+      }
+      const awayCount=sess.awayPauseCount||0;
+      const hasVideo=!!sess.videoURL;
+      const icon=sess.success?'✓':'✕';
+      const iconCls=sess.success?'study':'reset';
+      const ptsEl=sess.pts>0?`<div class="sess-pts earn">+${sess.pts}</div>`:`<div class="sess-pts zero">0 pts</div>`;
+
+      return `<div class="sess-card">
+        <div class="sess-header" onclick="toggleSess(${i})">
+          <div class="sess-icon ${iconCls}">${icon}</div>
+          <div class="sess-meta">
+            <div class="sess-title">${sess.success?'Study Session':'Session Reset'} · ${sess.mins} min</div>
+            <div class="sess-sub">${sess.date} · ${sess.time}${awayCount>0?` · 🚶 ${awayCount}× left seat`:''}</div>
+          </div>
+          ${ptsEl}
+          <div class="sess-chevron ${isOpen?'open':''}">▶</div>
+        </div>
+        ${isOpen?`<div class="sess-detail open">
+          <div class="detail-stats">
+            <div class="ds"><div class="ds-lbl">Duration</div><div class="ds-val">${sess.mins} min</div></div>
+            <div class="ds"><div class="ds-lbl">Points</div><div class="ds-val" style="color:var(--gold)">${sess.pts>0?'+'+sess.pts:'0'}</div></div>
+            <div class="ds"><div class="ds-lbl">Times Left Seat</div><div class="ds-val" style="color:${awayCount>0?'var(--orange)':'inherit'}">${awayCount}</div></div>
+            <div class="ds"><div class="ds-lbl">Video</div><div class="ds-val" style="font-size:.85rem">${hasVideo?'✓ Recorded':'— (expired)'}</div></div>
+          </div>
+          ${(sess.events&&sess.events.length>0)?`
+          <div class="shdr">Session Timeline</div>
+          <div class="ev-timeline">
+            ${sess.events.map(ev=>`
+              <div class="ev-item">
+                <div class="ev-dot ${ev.type}"></div>
+                <div class="ev-body">
+                  <div class="ev-label ${ev.type}">${ev.label}</div>
+                  <div class="ev-time">${ev.wallTime}${ev.studySecs!=null?' · '+fmt(ev.studySecs)+' into session':''}</div>
+                </div>
+              </div>`).join('')}
+          </div>`:''}
+          <div class="vid-section">
+            <div class="vid-title">
+              <span>📹 Session Recording</span>
+              ${hasVideo?`<a href="${sess.videoURL}" download="focuspoints-session.webm" class="dl-btn">⬇ Download</a>`:''}
+            </div>
+            ${hasVideo?`
+            <div class="vid-player"><video controls src="${sess.videoURL}" preload="metadata"></video></div>
+            <p style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center">Mirrored camera view · Available until tab is closed · Download to keep permanently</p>
+            `:`<div class="vid-placeholder">
+              <span style="font-size:1.5rem">📹</span>
+              <span>Video not available</span>
+              <span style="font-size:11px">Videos reset when you close the browser tab — download right after your session.</span>
+            </div>`}
+          </div>
+        </div>`:''}
+      </div>`;
+    }).join('')}
+  </div>
+  `}
+  <p class="hint">Videos available until you close the browser — download to keep them permanently<br>Timeline shows every time you left your seat, took breaks, and returned</p>`;
+}
+
+// ══════════════════════════════════════════════
+// GLOBALS
+// ══════════════════════════════════════════════
+window.setTab=t=>{S.tab=t;render();};
+window.startStudy=startStudy;
+window.endStudy=endStudy;
+window.takeBreak=takeBreak;
+window.resumeStudy=resumeStudy;
+window.returnFocus=returnFocus;
+window.enableCam=a=>enableCamera(a);
+window.disableCam=disableCamera;
+window.buy=id=>{const item=SHOP.find(i=>i.id===id);if(item)buyReward(item);};
+window.toggleSess=i=>{S.expandedSessions[i]=!S.expandedSessions[i];render();};
+
+render();
+</script>
+</body>
+</html>
