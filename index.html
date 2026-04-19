@@ -259,7 +259,7 @@ const S={
   streak:sv?.streak??0,lastStudyDate:sv?.lastStudyDate??null,totalStudyMins:sv?.totalStudyMins??0,
   sessionHistory:sv?.sessionHistory??[],
   phase:'idle',
-  studySecs:0,distractSecs:0,breakSecs:0,gamingSecs:0,gamingLeft:0,
+  studySecs:0,distractSecs:0,breakSecs:0,gamingSecs:0,gamingLeft:0,gamingStart:0,
   sessionStart:0,pausedMs:0,
   personGoneTs:null,personGoneSecs:0,
   lastActivity:Date.now(),tabHidden:false,
@@ -651,11 +651,13 @@ function buyReward(item){
   S.points-=item.cost;S.totalSpent=(S.totalSpent||0)+item.cost;
   if(S.phase!=='idle'){clearInterval(S.mainInterval);S.phase='idle';S.studySecs=0;}
   S.gamingSecs=item.mins*60;S.gamingLeft=item.mins*60;S.phase='gaming';
+  S.gamingStart=Date.now();  // wall-clock anchor
   const entry={id:Date.now(),date:dayStr(),time:timeStr(),type:'spend',pts:item.cost,name:item.name,mins:item.mins,events:[],success:true,awayPauseCount:0};
   S.sessionHistory.unshift(entry);persist();
   clearInterval(S.gamingInterval);
   S.gamingInterval=setInterval(()=>{
-    S.gamingLeft--;
+    // Always compute from wall clock — runs correctly even when tab is hidden
+    S.gamingLeft=Math.max(0, S.gamingSecs - Math.floor((Date.now()-S.gamingStart)/1000));
     if(S.gamingLeft<=0){clearInterval(S.gamingInterval);S.phase='idle';persist();toast(`${item.name} time is up! Back to studying 📚`,'p',6000);}
     render();
   },1000);
